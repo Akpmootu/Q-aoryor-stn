@@ -77,6 +77,58 @@ async function startServer() {
     res.json(queueState);
   });
 
+  app.use(express.json());
+
+  app.post("/api/tts", async (req, res) => {
+    try {
+      const { text } = req.body;
+      if (!text) {
+        return res.status(400).json({ error: "Text is required" });
+      }
+
+      // Check if API key exists
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "GEMINI_API_KEY is not set" });
+      }
+
+      // Dynamically import to keep it isolated
+      const { GoogleGenAI, Modality } = await import("@google/genai");
+      
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
+        contents: [{ parts: [{ text: text }] }],
+        config: {
+          responseModalities: [Modality.AUDIO], // Use AUDIO enum from Modality
+          speechConfig: {
+            voiceConfig: {
+              // 'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'
+              prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore is a distinct clear voice
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        res.json({ audio: base64Audio });
+      } else {
+        res.status(500).json({ error: "No audio generated" });
+      }
+    } catch (error) {
+      console.error("TTS generation error:", error);
+      res.status(500).json({ error: "Failed to generate speech" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
