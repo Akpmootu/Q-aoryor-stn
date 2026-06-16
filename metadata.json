@@ -1,0 +1,6 @@
+{
+  "name": "ระบบเรียกคิว",
+  "description": "ระบบเรียกคิวที่มีเสียงเรียกภาษาไทย พร้อมแสดงหมายเลขเรียลไทม์ และมีระบบจัดการหลังบ้านใช้งานง่าย",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
