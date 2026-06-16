@@ -144,7 +144,7 @@ export default function DisplayScreen() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[#F8FAFC] font-sans text-[#1E293B] overflow-hidden relative">
+    <div className="flex flex-col min-h-screen lg:h-screen w-full bg-[#F8FAFC] font-sans text-[#1E293B] lg:overflow-hidden overflow-x-hidden relative">
       {/* Sound Activation overlay wrapper matching Bold Typography style */}
       {!isSoundActivated && (
         <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 text-center">
@@ -168,9 +168,9 @@ export default function DisplayScreen() {
       )}
 
       {/* Header Section */}
-      <header className="flex items-center justify-between px-10 py-5 bg-white border-b-2 border-slate-200 shadow-sm z-10">
-        <div className="flex items-center gap-6">
-          <div className="w-[88px] h-[88px] bg-white rounded-full flex items-center justify-center shadow-md border border-slate-100 overflow-hidden shrink-0">
+      <header className="flex flex-col md:flex-row items-center justify-between px-4 lg:px-10 py-5 bg-white border-b-2 border-slate-200 shadow-sm z-10 gap-4">
+        <div className="flex flex-col sm:flex-row items-center text-center sm:text-left gap-4 lg:gap-6">
+          <div className="w-[60px] h-[60px] md:w-[88px] md:h-[88px] bg-white rounded-full flex items-center justify-center shadow-md border border-slate-100 overflow-hidden shrink-0">
             {/* Added logo placeholder */}
             <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = 'https://placehold.co/100x100/blue/white?text=Logo' }} />
           </div>
@@ -186,30 +186,30 @@ export default function DisplayScreen() {
             </p>
           </div>
         </div>
-        <div className="text-right flex flex-col justify-center items-end">
-          <div className="text-lg md:text-xl font-bold text-slate-600 mb-1">
+        <div className="text-center md:text-right flex flex-col justify-center items-center md:items-end">
+          <div className="text-base md:text-xl font-bold text-slate-600 mb-1">
             {time.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
           </div>
-          <div className="text-4xl md:text-5xl font-mono font-black text-blue-600 drop-shadow-sm tracking-tight leading-none">
+          <div className="text-3xl md:text-5xl font-mono font-black text-blue-600 drop-shadow-sm tracking-tight leading-none">
             {time.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </div>
         </div>
       </header>
 
       {/* Main Viewport Content */}
-      <main className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden relative h-full">
+      <main className="flex-1 flex flex-col lg:flex-row gap-0 lg:overflow-hidden relative">
         
         {/* Left Pane: Queue Display */}
-        <section className="w-full lg:w-[60%] flex flex-col p-8 border-b lg:border-b-0 lg:border-r border-slate-200 justify-between bg-[#F8FAFC] h-full">
-          <div className="flex-1 flex flex-col justify-center items-center relative">
-            <span className="px-6 py-2 bg-blue-100 text-blue-700 rounded-full text-lg font-bold tracking-widest mb-4 shadow-sm">
+        <section className="w-full lg:w-[60%] flex flex-col p-4 md:p-8 border-b lg:border-b-0 lg:border-r border-slate-200 justify-between bg-[#F8FAFC] min-h-[60vh] lg:h-full">
+          <div className="flex-1 flex flex-col justify-center items-center relative py-10 lg:py-0">
+            <span className="px-4 py-2 sm:px-6 sm:py-2 bg-blue-100 text-blue-700 rounded-full text-sm sm:text-lg font-bold tracking-widest mb-4 shadow-sm text-center">
               กำลังเรียกคิว / NOW SERVING
             </span>
-            <h2 className="text-[160px] sm:text-[220px] lg:text-[280px] font-black leading-none tracking-tighter text-slate-900 mb-0 drop-shadow-md">
+            <h2 className="text-[120px] sm:text-[180px] lg:text-[280px] font-black leading-none tracking-tighter text-slate-900 mb-0 drop-shadow-md text-center">
               {queue.currentNumber}
             </h2>
-            <div className="h-2 w-48 bg-blue-600 rounded-full mb-8 mt-4 shadow-sm"></div>
-            <div className="text-3xl sm:text-4xl font-bold text-slate-700 flex items-center gap-4 bg-white px-8 py-4 rounded-2xl shadow-sm border border-slate-100">
+            <div className="h-2 w-32 sm:w-48 bg-blue-600 rounded-full mb-6 sm:mb-8 mt-2 sm:mt-4 shadow-sm"></div>
+            <div className="text-xl sm:text-3xl lg:text-4xl font-bold text-slate-700 flex items-center gap-4 bg-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl shadow-sm border border-slate-100 text-center">
               <span className="text-blue-800">ช่องบริการที่ 1</span>
             </div>
           </div>
@@ -228,15 +228,15 @@ export default function DisplayScreen() {
         </section>
 
         {/* Right Pane: Video + Backoffice Sidebar controls in a beautiful non-scrollable layout */}
-        <section className="w-full lg:w-[40%] flex flex-col bg-slate-50 overflow-hidden h-full">
+        <section className="w-full lg:w-[40%] flex flex-col bg-slate-50 lg:overflow-hidden min-h-[70vh] lg:h-full pb-6 lg:pb-0">
           
           {/* Top of Sidebar: Video Area (Now Facebook Embed) */}
-          <div className="p-6 pb-2 flex-1 min-h-0 flex flex-col">
-            <div className="flex-1 w-full bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200">
+          <div className="p-4 lg:p-6 pb-2 flex-1 min-h-[400px] lg:min-h-0 flex flex-col">
+            <div className="flex-1 w-full bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200 relative">
               <iframe 
                 src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fsatunfda&tabs=timeline&width=340&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false&appId" 
-                width="100%" 
-                height="100%" 
+                className="absolute inset-0 w-full h-full"
+
                 style={{ border: 'none', overflow: 'hidden' }} 
                 scrolling="no" 
                 frameBorder="0" 
@@ -247,9 +247,9 @@ export default function DisplayScreen() {
           </div>
 
           {/* Bottom of Sidebar: Integrated Staff controls */}
-          <div className="p-6 pt-4 shrink-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-lg flex flex-col gap-3">
-              <div className="flex justify-between items-center border-b border-white/10 pb-2">
+          <div className="p-4 lg:p-6 pt-4 shrink-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="bg-slate-900 rounded-2xl p-4 lg:p-5 text-white shadow-lg flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-white/10 pb-2 gap-2">
                 <div className="flex items-center gap-2">
                   <i className="fa-solid fa-user-gear text-emerald-400"></i>
                   <h4 className="text-white font-bold tracking-tight text-sm">แผงควบคุมฝ่ายพนักงาน</h4>
@@ -261,7 +261,7 @@ export default function DisplayScreen() {
               </div>
 
               {/* Core Call Action button */}
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button 
                   onClick={handleNextQueue}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg py-2 px-3 font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-950/40 active:scale-95 transition-transform"
