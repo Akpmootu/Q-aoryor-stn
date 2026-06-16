@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { io } from 'socket.io-client';
+import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { QueueState } from '../types';
 import { speakThaiQueue } from '../lib/tts';
@@ -9,57 +8,79 @@ export default function DisplayScreen() {
   const [time, setTime] = useState(new Date());
   const [isSoundActivated, setIsSoundActivated] = useState(false);
   const [manualQueue, setManualQueue] = useState("");
-  const socketRef = useRef<any>(null);
 
+  // Initialize and sync state via localStorage
   useEffect(() => {
-    // Initialize socket connection mapping to websocket only
-    const socket = io({
-      transports: ['websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
-    socketRef.current = socket;
+    const saved = localStorage.getItem('queueState');
+    if (saved) {
+      try {
+        setQueue(JSON.parse(saved));
+      } catch (e) {}
+    }
 
-    socket.on("queue:state", (state: QueueState) => {
-      setQueue(state);
-    });
-
-    socket.on("queue:play", (state: QueueState) => {
-      setQueue(state);
-      
-      // Full screen popup for the called queue
-      Swal.fire({
-        title: `<div class="text-4xl md:text-6xl font-black text-blue-900 mb-4">ขอเชิญคิวที่</div>`,
-        html: `
-          <div class="text-[150px] md:text-[250px] font-black text-slate-900 leading-none drop-shadow-lg">${state.currentNumber}</div>
-          <div class="text-4xl md:text-6xl font-bold text-blue-800 mt-8">ช่องบริการที่ 1</div>
-        `,
-        showConfirmButton: false,
-        timer: 4000,
-        timerProgressBar: true,
-        width: '90%',
-        padding: '3em',
-        backdrop: `rgba(255,255,255,0.95)`,
-        customClass: {
-          popup: 'rounded-3xl shadow-2xl border-4 border-blue-500'
-        }
-      });
-
-      // Ensure we hit play queue text only if sound is activated by user interaction
-      if (isSoundActivated) {
-        speakThaiQueue(state.currentNumber);
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'queueState' && e.newValue) {
+        setQueue(JSON.parse(e.newValue));
       }
-    });
-
-    return () => {
-      socket.disconnect();
+      if (e.key === 'queueTrigger' && e.newValue) {
+        const trigger = JSON.parse(e.newValue);
+        if (trigger.action === 'play' && trigger.state) {
+          setQueue(trigger.state);
+          // Only play popups and sound if sound is activated on this tab
+          if (isSoundActivated) {
+            triggerPlayFeedback(trigger.state);
+          }
+        }
+      }
     };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, [isSoundActivated]);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const triggerPlayFeedback = (state: QueueState) => {
+    // Full screen popup for the called queue
+    Swal.fire({
+      title: `<div class="text-4xl md:text-6xl font-black text-blue-900 mb-4">ขอเชิญคิวที่</div>`,
+      html: `
+        <div class="text-[150px] md:text-[250px] font-black text-slate-900 leading-none drop-shadow-lg">${state.currentNumber}</div>
+        <div class="text-4xl md:text-6xl font-bold text-blue-800 mt-8">ช่องบริการที่ 1</div>
+      `,
+      showConfirmButton: false,
+      timer: 4000,
+      timerProgressBar: true,
+      width: '90%',
+      padding: '3em',
+      backdrop: `rgba(255,255,255,0.95)`,
+      customClass: {
+        popup: 'rounded-3xl shadow-2xl border-4 border-blue-500'
+      }
+    });
+
+    speakThaiQueue(state.currentNumber);
+  };
+
+  const syncQueue = (newState: QueueState, playFeedback: boolean = false) => {
+    setQueue(newState);
+    localStorage.setItem('queueState', JSON.stringify(newState));
+    
+    if (playFeedback) {
+      localStorage.setItem('queueTrigger', JSON.stringify({
+        action: 'play',
+        state: newState,
+        timestamp: Date.now()
+      }));
+      // Also trigger locally for the admin doing it
+      if (isSoundActivated) {
+        triggerPlayFeedback(newState);
+      }
+    }
+  };
 
   const handleActivateSound = () => {
     setIsSoundActivated(true);
@@ -77,22 +98,16 @@ export default function DisplayScreen() {
   };
 
   const handleNextQueue = () => {
-    if (socketRef.current) {
-      socketRef.current.emit("queue:next", { counter: "1" });
-    }
+    const nextNum = queue.currentNumber + 1;
+    syncQueue({ currentNumber: nextNum, lastCalledNumber: queue.currentNumber, counter: "1" }, true);
   };
 
   const handleCallCurrent = () => {
-    if (socketRef.current) {
-      socketRef.current.emit("queue:call", { counter: "1" });
-    }
+    syncQueue(queue, true);
   };
 
   const handleRecall = () => {
-    if (socketRef.current) {
-      socketRef.current.emit("queue:recall");
-      // For recall, maybe just trigger the speech again (which the backend does by blasting queue:play)
-    }
+    syncQueue(queue, true);
   };
 
   const handleReset = () => {
@@ -107,9 +122,7 @@ export default function DisplayScreen() {
       cancelButtonText: 'ยกเลิก'
     }).then((result) => {
       if (result.isConfirmed) {
-        if (socketRef.current) {
-          socketRef.current.emit("queue:reset");
-        }
+        syncQueue({ currentNumber: 1, lastCalledNumber: 0, counter: "1" }, false);
         Swal.fire({
           icon: 'success',
           title: 'รีเซ็ตคิวเรียบร้อย ✨',
@@ -126,10 +139,8 @@ export default function DisplayScreen() {
       Swal.fire('ข้อผิดพลาด ❌', 'กรุณากรอกหมายเลขคิวเป็นตัวเลข', 'error');
       return;
     }
-    if (socketRef.current) {
-      socketRef.current.emit("queue:set", { number: Number(manualQueue), counter: "1" });
-      setManualQueue("");
-    }
+    syncQueue({ currentNumber: Number(manualQueue), lastCalledNumber: queue.currentNumber, counter: "1" }, true);
+    setManualQueue("");
   };
 
   return (
