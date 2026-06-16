@@ -22,6 +22,25 @@ export default function DisplayScreen() {
 
     socket.on("queue:play", (state: QueueState) => {
       setQueue(state);
+      
+      // Full screen popup for the called queue
+      Swal.fire({
+        title: `<div class="text-4xl md:text-6xl font-black text-blue-900 mb-4">ขอเชิญคิวที่</div>`,
+        html: `
+          <div class="text-[150px] md:text-[250px] font-black text-slate-900 leading-none drop-shadow-lg">${state.currentNumber}</div>
+          <div class="text-4xl md:text-6xl font-bold text-blue-800 mt-8">ช่องบริการที่ 1</div>
+        `,
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true,
+        width: '90%',
+        padding: '3em',
+        backdrop: `rgba(255,255,255,0.95)`,
+        customClass: {
+          popup: 'rounded-3xl shadow-2xl border-4 border-blue-500'
+        }
+      });
+
       // Ensure we hit play queue text only if sound is activated by user interaction
       if (isSoundActivated) {
         speakThaiQueue(state.currentNumber);
@@ -56,45 +75,19 @@ export default function DisplayScreen() {
   const handleNextQueue = () => {
     if (socketRef.current) {
       socketRef.current.emit("queue:next", { counter: "1" });
-      Swal.fire({
-        icon: 'success',
-        title: 'เรียกคิวถัดไปสำเร็จ 🎉',
-        text: `คิวเลขที่ ${queue.currentNumber + 1} ไปที่ช่องบริการ 1`,
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
-      });
     }
   };
 
   const handleCallCurrent = () => {
     if (socketRef.current) {
       socketRef.current.emit("queue:call", { counter: "1" });
-      Swal.fire({
-        icon: 'info',
-        title: 'ประกาศเรียกคิว 📢',
-        text: `กำลังเรียกคิว ${queue.currentNumber} ซ้ำตัวเตือน`,
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
-      });
     }
   };
 
   const handleRecall = () => {
     if (socketRef.current) {
       socketRef.current.emit("queue:recall");
-      Swal.fire({
-        icon: 'warning',
-        title: 'เรียกคิวซ้ำ 🔄',
-        text: `เพลย์เสียงเรียกคิวปัจจุบันอีกครั้ง`,
-        timer: 1500,
-        showConfirmButton: false,
-        toast: true,
-        position: 'top-end'
-      });
+      // For recall, maybe just trigger the speech again (which the backend does by blasting queue:play)
     }
   };
 
@@ -131,13 +124,6 @@ export default function DisplayScreen() {
     }
     if (socketRef.current) {
       socketRef.current.emit("queue:set", { number: Number(manualQueue), counter: "1" });
-      Swal.fire({
-        icon: 'success',
-        title: 'แทรกคิวสำเร็จ ✅',
-        text: `เปลี่ยนไปที่หมายเลข ${manualQueue}`,
-        timer: 1500,
-        showConfirmButton: false
-      });
       setManualQueue("");
     }
   };
@@ -196,11 +182,11 @@ export default function DisplayScreen() {
       </header>
 
       {/* Main Viewport Content */}
-      <main className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden">
+      <main className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden relative h-full">
         
         {/* Left Pane: Queue Display */}
-        <section className="w-full lg:w-[60%] flex flex-col p-8 border-b lg:border-b-0 lg:border-r border-slate-200 justify-between bg-[#F8FAFC]">
-          <div className="flex-1 flex flex-col justify-center items-center">
+        <section className="w-full lg:w-[60%] flex flex-col p-8 border-b lg:border-b-0 lg:border-r border-slate-200 justify-between bg-[#F8FAFC] h-full">
+          <div className="flex-1 flex flex-col justify-center items-center relative">
             <span className="px-6 py-2 bg-blue-100 text-blue-700 rounded-full text-lg font-bold tracking-widest mb-4 shadow-sm">
               กำลังเรียกคิว / NOW SERVING
             </span>
@@ -210,13 +196,11 @@ export default function DisplayScreen() {
             <div className="h-2 w-48 bg-blue-600 rounded-full mb-8 mt-4 shadow-sm"></div>
             <div className="text-3xl sm:text-4xl font-bold text-slate-700 flex items-center gap-4 bg-white px-8 py-4 rounded-2xl shadow-sm border border-slate-100">
               <span className="text-blue-800">ช่องบริการที่ 1</span>
-              <span className="text-slate-300">|</span>
-              <span className="text-slate-500">COUNTER 1</span>
             </div>
           </div>
 
           {/* Scrolling Ticker at base of left column */}
-          <div className="bg-blue-600 text-white rounded-2xl p-4 flex items-center overflow-hidden relative shadow-md">
+          <div className="bg-blue-600 text-white rounded-2xl p-4 flex items-center overflow-hidden relative shadow-md shrink-0">
             <div className="bg-blue-700 h-full py-2 px-4 rounded-xl font-bold text-sm uppercase tracking-wider whitespace-nowrap mr-4 shadow-sm">
               ประกาศ / INFO:
             </div>
@@ -228,14 +212,14 @@ export default function DisplayScreen() {
           </div>
         </section>
 
-        {/* Right Pane: Video + Backoffice Sidebar controls in a beautiful scrollable layout */}
-        <section className="w-full lg:w-[40%] flex flex-col bg-white overflow-y-auto">
+        {/* Right Pane: Video + Backoffice Sidebar controls in a beautiful non-scrollable layout */}
+        <section className="w-full lg:w-[40%] flex flex-col bg-slate-50 overflow-hidden h-full">
           
           {/* Top of Sidebar: Video Area (Now Facebook Embed) */}
-          <div className="p-6 pb-2">
-            <div className="relative aspect-[4/5] bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
+          <div className="p-6 pb-2 flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 w-full bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200">
               <iframe 
-                src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fsatunfda&tabs=timeline&width=340&height=500&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true&appId" 
+                src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fsatunfda&tabs=timeline&width=340&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false&appId" 
                 width="100%" 
                 height="100%" 
                 style={{ border: 'none', overflow: 'hidden' }} 
@@ -248,8 +232,8 @@ export default function DisplayScreen() {
           </div>
 
           {/* Bottom of Sidebar: Integrated Staff controls */}
-          <div className="flex-1 p-6 flex flex-col gap-4">
-            <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-xl flex flex-col gap-3">
+          <div className="p-6 pt-4 shrink-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-lg flex flex-col gap-3">
               <div className="flex justify-between items-center border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2">
                   <i className="fa-solid fa-user-gear text-emerald-400"></i>
