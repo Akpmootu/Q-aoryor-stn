@@ -12,8 +12,12 @@ export default function DisplayScreen() {
   const socketRef = useRef<any>(null);
 
   useEffect(() => {
-    // Initialize socket connection
-    const socket = io();
+    // Initialize socket connection mapping to websocket only
+    const socket = io({
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
     socketRef.current = socket;
 
     socket.on("queue:state", (state: QueueState) => {
