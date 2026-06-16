@@ -1,4 +1,24 @@
 export function speakThaiQueue(number: number) {
+  try {
+    const audio = new Audio(`/media/Q-${number}.wav`);
+    
+    // Fallback to TTS if there is an error loading or playing the audio
+    audio.onerror = () => {
+      console.warn(`Audio file for queue ${number} not found or error, falling back to TTS.`);
+      fallbackTTS(number);
+    };
+
+    audio.play().catch(e => {
+      console.error("Audio playback failed, falling back to TTS:", e);
+      fallbackTTS(number);
+    });
+  } catch (e) {
+    console.error("Audio setup error:", e);
+    fallbackTTS(number);
+  }
+}
+
+function fallbackTTS(number: number) {
   if ('speechSynthesis' in window) {
     try {
       window.speechSynthesis.cancel();
