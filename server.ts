@@ -77,9 +77,6 @@ async function startServer() {
     res.json(queueState);
   });
 
-  // Serve media files
-  app.use("/media", express.static(path.join(process.cwd(), "media")));
-
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
