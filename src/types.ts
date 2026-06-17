@@ -1,5 +1,8 @@
 export interface QueueState {
-  currentNumber: number;
-  lastCalledNumber: number;
-  counter: string;
+  prefix: string; // "W" or "O"
+  numbers: {
+    W: number;
+    O: number;
+  };
+  counter: string; // "1" or "2"
 }

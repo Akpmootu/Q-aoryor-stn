@@ -1,26 +1,61 @@
 import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { QueueState } from '../types';
-import { speakThaiQueue } from '../lib/tts';
+import { speakThaiQueue, getThaiVoice } from '../lib/tts';
 
 export default function DisplayScreen() {
-  const [queue, setQueue] = useState<QueueState>({ currentNumber: 1, lastCalledNumber: 0, counter: "1" });
+  const [queue, setQueue] = useState<QueueState>({ prefix: 'W', numbers: { W: 1, O: 1 }, counter: "1" });
   const [time, setTime] = useState(new Date());
   const [isSoundActivated, setIsSoundActivated] = useState(false);
   const [manualQueue, setManualQueue] = useState("");
+  const [currentSlide, setCurrentSlide] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    const element = document.getElementById('slider-container');
+    if (!element) return;
+
+    if (!document.fullscreenElement) {
+      element.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(err => {
+        console.error("Error attempting to enable full-screen mode:", err);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // Initialize and sync state via localStorage
   useEffect(() => {
     const saved = localStorage.getItem('queueState');
     if (saved) {
       try {
-        setQueue(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        if (parsed.prefix && parsed.numbers) {
+          setQueue(parsed);
+        } else {
+          localStorage.removeItem('queueState');
+        }
       } catch (e) {}
     }
 
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'queueState' && e.newValue) {
-        setQueue(JSON.parse(e.newValue));
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed.prefix && parsed.numbers) {
+            setQueue(parsed);
+          }
+        } catch (e) {}
       }
       if (e.key === 'queueTrigger' && e.newValue) {
         const trigger = JSON.parse(e.newValue);
@@ -43,26 +78,39 @@ export default function DisplayScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const sliderTimer = setInterval(() => {
+      setCurrentSlide(prev => (prev % 9) + 1);
+    }, 5000);
+    return () => clearInterval(sliderTimer);
+  }, []);
+
   const triggerPlayFeedback = (state: QueueState) => {
-    // Full screen popup for the called queue
+    const queueNumStr = String(state.numbers[state.prefix as keyof typeof state.numbers]);
+    
+    // Full screen popup for the called queue with no scrollbars and clear typography
     Swal.fire({
-      title: `<div class="text-4xl md:text-6xl font-black text-blue-900 mb-4">ขอเชิญคิวที่</div>`,
+      title: `<div class="text-4xl md:text-5xl font-black text-blue-900 mb-2">ขอเชิญคิวที่</div>`,
       html: `
-        <div class="text-[150px] md:text-[250px] font-black text-slate-900 leading-none drop-shadow-lg">${state.currentNumber}</div>
-        <div class="text-4xl md:text-6xl font-bold text-blue-800 mt-8">ช่องบริการที่ 1</div>
+        <div class="text-[160px] md:text-[240px] font-black leading-none drop-shadow-lg flex items-center justify-center gap-2 select-none overflow-hidden my-2">
+          <span class="text-blue-600 font-sans tracking-widest">${state.prefix}</span>
+          <span class="text-slate-900 font-mono tracking-tight">${queueNumStr}</span>
+        </div>
+        <div class="text-4xl md:text-5xl font-bold text-blue-800 mt-4">ช่องบริการที่ ${state.counter}</div>
       `,
       showConfirmButton: false,
       timer: 4000,
       timerProgressBar: true,
       width: '90%',
-      padding: '3em',
+      padding: '1.5em',
       backdrop: `rgba(255,255,255,0.95)`,
       customClass: {
-        popup: 'rounded-3xl shadow-2xl border-4 border-blue-500'
+        popup: 'rounded-3xl shadow-2xl border-4 border-blue-500 overflow-hidden',
+        htmlContainer: 'overflow-hidden m-0'
       }
     });
 
-    speakThaiQueue(state.currentNumber);
+    speakThaiQueue(state.prefix, state.numbers[state.prefix as keyof typeof state.numbers], state.counter);
   };
 
   const syncQueue = (newState: QueueState, playFeedback: boolean = false) => {
@@ -84,22 +132,22 @@ export default function DisplayScreen() {
 
   const handleActivateSound = () => {
     setIsSoundActivated(true);
-    // Speak welcome/test voice to trigger initial speech audio synthesis queue
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const startUtterance = new SpeechSynthesisUtterance("ระบบเสียงเรียกคิวเปิดใช้งานแล้วค่ะ");
-        startUtterance.lang = "th-TH";
-        window.speechSynthesis.speak(startUtterance);
-      } catch (e) {
-        console.error("Welcome speech failed", e);
-      }
+    // Play a short initial audio from media to unlock browser autoplay context
+    try {
+      const audio = new Audio('/media/please.wav');
+      audio.volume = 0.05;
+      audio.play().catch(e => console.error("Autoplay unlock failed", e));
+    } catch (e) {
+      console.error("Autoplay unlock error", e);
     }
   };
 
   const handleNextQueue = () => {
-    const nextNum = queue.currentNumber + 1;
-    syncQueue({ currentNumber: nextNum, lastCalledNumber: queue.currentNumber, counter: "1" }, true);
+    const currentNum = queue.numbers[queue.prefix as keyof typeof queue.numbers];
+    syncQueue({ 
+      ...queue, 
+      numbers: { ...queue.numbers, [queue.prefix]: currentNum + 1 } 
+    }, true);
   };
 
   const handleCallCurrent = () => {
@@ -122,7 +170,7 @@ export default function DisplayScreen() {
       cancelButtonText: 'ยกเลิก'
     }).then((result) => {
       if (result.isConfirmed) {
-        syncQueue({ currentNumber: 1, lastCalledNumber: 0, counter: "1" }, false);
+        syncQueue({ prefix: 'W', numbers: { W: 1, O: 1 }, counter: "1" }, false);
         Swal.fire({
           icon: 'success',
           title: 'รีเซ็ตคิวเรียบร้อย ✨',
@@ -139,7 +187,10 @@ export default function DisplayScreen() {
       Swal.fire('ข้อผิดพลาด ❌', 'กรุณากรอกหมายเลขคิวเป็นตัวเลข', 'error');
       return;
     }
-    syncQueue({ currentNumber: Number(manualQueue), lastCalledNumber: queue.currentNumber, counter: "1" }, true);
+    syncQueue({ 
+      ...queue, 
+      numbers: { ...queue.numbers, [queue.prefix]: Number(manualQueue) } 
+    }, true);
     setManualQueue("");
   };
 
@@ -205,12 +256,13 @@ export default function DisplayScreen() {
             <span className="px-4 py-2 sm:px-6 sm:py-2 bg-blue-100 text-blue-700 rounded-full text-sm sm:text-lg font-bold tracking-widest mb-4 shadow-sm text-center">
               กำลังเรียกคิว / NOW SERVING
             </span>
-            <h2 className="text-[120px] sm:text-[180px] lg:text-[280px] font-black leading-none tracking-tighter text-slate-900 mb-0 drop-shadow-md text-center">
-              {queue.currentNumber}
+            <h2 className="text-[150px] sm:text-[220px] lg:text-[360px] font-black leading-none text-slate-900 mb-0 drop-shadow-md text-center flex items-center justify-center gap-2 lg:gap-4 select-none">
+              <span className="text-blue-600 font-sans tracking-widest">{queue.prefix}</span>
+              <span className="font-mono tracking-tighter">{queue.numbers[queue.prefix as keyof typeof queue.numbers]}</span>
             </h2>
             <div className="h-2 w-32 sm:w-48 bg-blue-600 rounded-full mb-6 sm:mb-8 mt-2 sm:mt-4 shadow-sm"></div>
             <div className="text-xl sm:text-3xl lg:text-4xl font-bold text-slate-700 flex items-center gap-4 bg-white px-6 sm:px-8 py-3 sm:py-4 rounded-2xl shadow-sm border border-slate-100 text-center">
-              <span className="text-blue-800">ช่องบริการที่ 1</span>
+              <span className="text-blue-800">ช่องบริการที่ {queue.counter}</span>
             </div>
           </div>
 
@@ -230,19 +282,45 @@ export default function DisplayScreen() {
         {/* Right Pane: Video + Backoffice Sidebar controls in a beautiful non-scrollable layout */}
         <section className="w-full lg:w-[40%] flex flex-col bg-slate-50 lg:overflow-hidden min-h-[70vh] lg:h-full pb-6 lg:pb-0">
           
-          {/* Top of Sidebar: Video Area (Now Facebook Embed) */}
+          {/* Top of Sidebar: Image Slider Area */}
           <div className="p-4 lg:p-6 pb-2 flex-1 min-h-[400px] lg:min-h-0 flex flex-col">
-            <div className="flex-1 w-full bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200 relative">
-              <iframe 
-                src="https://www.facebook.com/plugins/page.php?href=https%3A%2F%2Fwww.facebook.com%2Fsatunfda&tabs=timeline&width=340&height=500&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false&appId" 
-                className="absolute inset-0 w-full h-full"
-
-                style={{ border: 'none', overflow: 'hidden' }} 
-                scrolling="no" 
-                frameBorder="0" 
-                allowFullScreen={true} 
-                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
-              ></iframe>
+            <div 
+              id="slider-container" 
+              className={`flex-1 w-full ${isFullscreen ? 'bg-slate-950' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden border border-slate-200 relative flex items-center justify-center group`}
+            >
+              <img 
+                src={`/slider/${currentSlide}.png`} 
+                alt="Slideshow" 
+                className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
+              />
+              
+              {/* Slider Navigation & Control Buttons */}
+              <div className="absolute inset-x-0 bottom-4 flex items-center justify-between px-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setCurrentSlide(prev => (prev === 1 ? 9 : prev - 1))}
+                    className="w-10 h-10 bg-slate-900/60 hover:bg-slate-900/80 text-white rounded-full flex items-center justify-center transition backdrop-blur-sm"
+                    title="ย้อนกลับ"
+                  >
+                    <i className="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <button 
+                    onClick={() => setCurrentSlide(prev => (prev % 9) + 1)}
+                    className="w-10 h-10 bg-slate-900/60 hover:bg-slate-900/80 text-white rounded-full flex items-center justify-center transition backdrop-blur-sm"
+                    title="ถัดไป"
+                  >
+                    <i className="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+                
+                <button 
+                  onClick={toggleFullscreen}
+                  className="w-10 h-10 bg-slate-900/60 hover:bg-slate-900/80 text-white rounded-full flex items-center justify-center transition backdrop-blur-sm"
+                  title={isFullscreen ? "ออกจากโหมดเต็มจอ" : "โหมดเต็มจอ"}
+                >
+                  <i className={`fa-solid ${isFullscreen ? 'fa-compress' : 'fa-expand'}`}></i>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -258,6 +336,32 @@ export default function DisplayScreen() {
                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
                   ระบบเชื่อมต่อแล้ว
                 </span>
+              </div>
+
+              {/* Queue Type & Counter Selection */}
+              <div className="flex gap-4 mb-2">
+                <div className="flex-1">
+                  <label className="text-[11px] font-bold text-slate-400 mb-1 block">ชนิดคิว (Queue Type)</label>
+                  <select 
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1.5 text-sm font-bold focus:outline-none focus:border-blue-500"
+                    value={queue.prefix}
+                    onChange={(e) => syncQueue({ ...queue, prefix: e.target.value }, false)}
+                  >
+                    <option value="W">W - Walk in</option>
+                    <option value="O">O - Online</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="text-[11px] font-bold text-slate-400 mb-1 block">จุดบริการ (Counter)</label>
+                  <select 
+                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-2 py-1.5 text-sm font-bold focus:outline-none focus:border-blue-500"
+                    value={queue.counter}
+                    onChange={(e) => syncQueue({ ...queue, counter: e.target.value }, false)}
+                  >
+                    <option value="1">ช่องบริการ 1</option>
+                    <option value="2">ช่องบริการ 2</option>
+                  </select>
+                </div>
               </div>
 
               {/* Core Call Action button */}

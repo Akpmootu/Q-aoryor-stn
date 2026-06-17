@@ -1,54 +1,42 @@
-export function speakThaiQueue(number: number) {
-  try {
-    const audio = new Audio(`/media/Q-${number}.wav`);
-    
-    // Fallback to TTS if there is an error loading or playing the audio
-    audio.onerror = () => {
-      console.warn(`Audio file for queue ${number} not found or error, falling back to TTS.`);
-      fallbackTTS(number);
-    };
-
-    audio.play().catch(e => {
-      console.error("Audio playback failed, falling back to TTS:", e);
-      fallbackTTS(number);
-    });
-  } catch (e) {
-    console.error("Audio setup error:", e);
-    fallbackTTS(number);
+export function getThaiVoice(): SpeechSynthesisVoice | null {
+  if (!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  
+  // 1. Exact match for Thai language code
+  let thaiVoice = voices.find(v => v.lang === 'th-TH' || v.lang === 'th_TH');
+  
+  // 2. Fallback to startsWith or name includes "thai"
+  if (!thaiVoice) {
+    thaiVoice = voices.find(v => v.lang.toLowerCase().startsWith('th') || v.name.toLowerCase().includes('thai'));
   }
+  
+  return thaiVoice || null;
 }
 
-function fallbackTTS(number: number) {
-  if ('speechSynthesis' in window) {
+export function speakThaiQueue(prefix: string, number: number, counter: string) {
+  const file1 = '/media/please.wav';
+  const file2 = `/media/${prefix}${number}.wav`;
+  const file3 = `/media/counter${counter}.wav`;
+
+  const playSequence = async () => {
     try {
-      window.speechSynthesis.cancel();
-      
-      const numStr = number.toString();
-      const digitWords = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
-      const spelledNum = numStr.split('').map(d => digitWords[parseInt(d)]).join(' ');
-      
-      const text = `ขอเชิญคิวที่, ${spelledNum}, รับบริการ, ที่ช่องบริการ 1, ค่ะ`;
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'th-TH';
-      utterance.rate = 0.8; 
-      
-      const setVoiceAndSpeak = () => {
-        const voices = window.speechSynthesis.getVoices();
-        const thaiVoice = voices.find(v => v.lang === 'th-TH' || v.lang.includes('th'));
-        if (thaiVoice) {
-          utterance.voice = thaiVoice;
-        }
-        window.speechSynthesis.speak(utterance);
+      const playAudio = (src: string) => {
+        return new Promise<void>((resolve, reject) => {
+          const audio = new Audio(src);
+          audio.onended = () => resolve();
+          audio.onerror = (e) => reject(`Failed to load or play ${src}`);
+          audio.play().catch(reject);
+        });
       };
 
-      if (window.speechSynthesis.getVoices().length === 0) {
-        window.speechSynthesis.onvoiceschanged = setVoiceAndSpeak;
-      } else {
-        setVoiceAndSpeak();
-      }
+      await playAudio(file1);
+      await playAudio(file2);
+      await playAudio(file3);
     } catch (e) {
-      console.error("Speech Synthesis Error:", e);
+      console.error("Audio sequence playback failed:", e);
     }
-  }
+  };
+
+  playSequence();
 }
+
